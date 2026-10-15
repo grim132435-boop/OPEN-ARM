@@ -1,0 +1,10 @@
+# 성공 판정 기준 — 읽기 전용. 에이전트 쓰기 금지 (sandbox deny_write + validate_scaffold 해시 고정).
+# 변경 시 validate_scaffold.py 의 CRITERIA_SHA256 을 사람이 갱신한다.
+position_error_m_max: 0.002
+orientation_error_deg_max: 3.0
+insertion_depth_ratio_min: 0.95
+contact_force_n_max: 15.0
+hold_time_s_min: 0.5
+episode_timeout_s: 20.0
+pass_rate_baseline: 0.80
+pass_rate_sweep_mean: 0.60

@@ -1,0 +1,42 @@
+# NemoClaw/OpenShell 샌드박스 정책 (OpenArm 검증 에이전트용)
+# 적용: NemoClaw blueprint 의 policies/ 에 복사 후 `nemoclaw onboard` 재실행.
+# 주의: 키 이름은 설치된 NemoClaw 버전의 reference/architecture 문서로 재확인. 의도 기술이 우선.
+version: 1
+name: openarm-sim-verifier
+network:
+  default: deny
+  allow:
+    - {host: 127.0.0.1, port: 11434, reason: ollama local inference}
+    - {host: 127.0.0.1, port: 5556,  reason: act policy server}
+    - {host: 127.0.0.1, port: 5555,  reason: gr00t policy server (baseline)}
+filesystem:
+  read:
+    - /workspace/OPEN-ARM
+  write:
+    - /workspace/OPEN-ARM/reports
+    - /workspace/OPEN-ARM/sim/arena/policy_config_act.yaml
+    - /workspace/OPEN-ARM/sim/arena/openarm_cable_insert_task.yaml
+  deny_write:
+    - /workspace/OPEN-ARM/sim/arena/success_criteria.yaml
+    - /workspace/OPEN-ARM/scripts
+    - /workspace/OPEN-ARM/docs
+    - /workspace/OPEN-ARM/checkpoints
+process:
+  # 평가 스크립트와 그 안에서 쓰는 기본 유틸. 실제 python 은 Isaac Lab venv (ARENA_PYTHON).
+  allow_exec:
+    - /workspace/OPEN-ARM/scripts/run_closed_loop.sh
+    - /bin/bash
+    - /usr/bin/python3
+    - /usr/bin/env
+    - /usr/bin/nohup
+    - /usr/bin/tee
+    - /usr/bin/date
+    - /usr/bin/seq
+    - /usr/bin/sleep
+    - /usr/bin/sha256sum
+    - /usr/bin/cut
+  env_passthrough: [ARENA_DIR, ARENA_PYTHON, HOME]
+inference:
+  provider: ollama
+  model: nemotron-3-nano:30b
+  endpoint: http://127.0.0.1:11434

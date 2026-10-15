@@ -1,0 +1,48 @@
+# OpenArm 케이블·소켓 삽입 — 환경 파라미터 (에이전트 수정 가능 블록: physics, variations, evaluation)
+# 성공 판정은 sim/arena/success_criteria.yaml (읽기 전용). 이 파일은
+# sim/arena/openarm_cable_insert_environment.py 가 읽어 Arena 환경을 구성한다.
+version: 2
+task:
+  name: openarm_cable_insert
+  description: Pick the cable connector from the table and insert it into the socket.
+  embodiment:
+    asset_name: openarm_joint        # sim/arena/openarm_embodiment.py 에서 register_asset
+    control: joint_position          # ACT 출력과 일치
+    control_hz: 30
+  scene:
+    background: maple_table_robolab  # Arena 내장 자산
+    connector:
+      usd: sim/arena/assets/connector_simple.usd   # 1차: 단순 원통 핀 → 2차: 실제 형상
+      mass_kg: 0.012
+      spawn_xyz_min: [0.42, -0.13, 0.76]
+      spawn_xyz_max: [0.48, -0.07, 0.76]
+    socket:
+      usd: sim/arena/assets/socket_simple.usd
+      xyz: [0.55, 0.05, 0.75]
+      rpy_deg: [0, 0, 90]
+      insertion_axis: z
+      insertion_depth_m: 0.012
+
+physics:
+  dt: 0.004166667          # 1/240
+  solver_position_iterations: 16
+  solver_velocity_iterations: 4
+  contact_offset_m: 0.002
+  rest_offset_m: 0.0
+
+subtasks: [reach_connector, grasp_connector, align_to_socket, insert, release]
+
+variations:                 # --variations full 일 때 적용되는 스윕 범위
+  socket_position_xy_m: [-0.015, 0.015]
+  socket_yaw_deg: [-10, 10]
+  connector_mass_scale: [0.8, 1.2]
+  camera_extrinsic_xyz_m: [-0.005, 0.005]
+  camera_extrinsic_rot_deg: [-2, 2]
+  lighting_intensity_scale: [0.6, 1.4]
+
+evaluation:
+  num_envs: 8               # ACT 서버는 배치 추론; 메모리 보고 조정
+  num_episodes_baseline: 50
+  num_episodes_sweep: 120   # 변형 스윕 총 에피소드 (변형은 에피소드마다 샘플링)
+  seed: 42
+  record_camera_video: true

@@ -1,0 +1,30 @@
+# ACT 원격 정책 설정 (서버 + Arena 클라이언트 공용)
+# 서버:   python sim/policy/act_policy_server.py --config sim/arena/policy_config_act.yaml
+# 클라이언트: policy_runner.py --policy_type sim.policy.act_remote_policy.ActRemoteClosedloopPolicy
+#            --policy_config_yaml_path sim/arena/policy_config_act.yaml --remote_port 5556 ...
+policy:
+  type: act_remote_closedloop
+  server:
+    host: 127.0.0.1
+    port: 5556          # GR00T 기본 5555 와 분리
+    timeout_ms: 3000
+  # LeRobot pretrained_model 디렉터리 (config.json, model.safetensors, policy_*processor.json)
+  checkpoint_dir: checkpoints/act_cable_insert/pretrained_model
+  chunk_size: 50        # 체크포인트 ACTConfig.chunk_size 와 같아야 함 (서버가 검증)
+  action_horizon: 25    # 청크 중 실제 실행할 스텝 수 (1..chunk_size). 에이전트 조정 가능
+  jpeg_roundtrip: true  # 실기 MJPG 파이프라인과 동일한 압축 아티팩트 재현
+
+# 관측 매핑 — 실기(LeRobot 데이터셋 키) ↔ sim(Arena camera_obs 키) 1:1
+observation_mapping:
+  cameras:
+    - {real: observation.images.cam_high,  sim: cam_high,  resolution: [480, 640]}
+    - {real: observation.images.cam_wrist, sim: cam_wrist, resolution: [480, 640]}
+    - {real: observation.images.cam_side,  sim: cam_side,  resolution: [480, 640]}
+  state:
+    real: observation.state
+    sim: robot_joint_pos
+    joint_order: [j1, j2, j3, j4, j5, j6, j7, gripper]
+  action:
+    real: action
+    sim: joint_pos_target
+    joint_order: [j1, j2, j3, j4, j5, j6, j7, gripper]

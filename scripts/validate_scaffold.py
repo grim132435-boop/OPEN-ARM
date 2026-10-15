@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import os
 import sys
 from pathlib import Path
 
@@ -22,6 +23,7 @@ CRITERIA = ROOT / "sim/arena/success_criteria.yaml"
 POLICY = ROOT / "sim/arena/policy_config_act.yaml"
 SANDBOX = ROOT / "agent/nemoclaw/policies/openarm-sandbox.yaml"
 PY_FILES = [
+    ROOT / "sim/robot/embodiment_profile.py",
     ROOT / "sim/policy/act_policy_server.py",
     ROOT / "sim/policy/act_remote_policy.py",
     ROOT / "sim/arena/openarm_cable_insert_environment.py",
@@ -72,10 +74,39 @@ def main() -> int:
         errs.append("task yaml must not carry success_criteria (lives in success_criteria.yaml)")
 
     m = pol["observation_mapping"]
-    if m["state"]["joint_order"] != m["action"]["joint_order"]:
-        errs.append("state/action joint_order differ")
-    if len(m["state"]["joint_order"]) != 8:
-        errs.append("expected 8 dof (7 joints + gripper)")
+    sys.path.insert(0, str(ROOT))
+    from sim.robot.embodiment_profile import load_profile, load_spec
+
+    try:
+        prof = load_profile(pol["embodiment_profile"])
+        say(f"embodiment profile: {prof.name} ({prof.dof} dof)")
+    except (KeyError, ValueError) as e:
+        errs.append(f"embodiment_profile: {e}")
+        prof = None
+    for name in load_spec()["profiles"]:
+        try:
+            p_ = load_profile(name)
+            if p_.arm_dof != 7:
+                errs.append(f"profile {name}: arm dof {p_.arm_dof} != 7")
+        except (KeyError, ValueError) as e:
+            errs.append(f"profile {name}: {e}")
+    if "joint_order" in m["state"] or "joint_order" in m["action"]:
+        errs.append("joint_order must come from embodiment_profile, not policy_config")
+    orca_dir = os.environ.get("ORCA_DESCRIPTION")
+    if orca_dir:
+        from sim.robot.embodiment_profile import check_against_urdf
+
+        orca = load_profile("openarm_v1_right_orca")
+        for e in check_against_urdf(orca, Path(orca_dir) / orca.ee_spec["asset"]["urdf"]):
+            errs.append(f"ORCA URDF: {e}")
+        say("ORCA URDF mapping: checked")
+    core_dir = os.environ.get("ORCA_CORE")
+    if core_dir:
+        from sim.robot.embodiment_profile import check_against_orca_core
+
+        for e in check_against_orca_core(load_profile("openarm_v1_right_orca"), Path(core_dir)):
+            errs.append(f"ORCA orca_core: {e}")
+        say("ORCA orca_core order/ranges: checked")
     if m["state"]["sim"] != "robot_joint_pos":
         errs.append("state.sim must be robot_joint_pos (Arena observation['policy'] key)")
     names = [c["sim"] for c in m["cameras"]]

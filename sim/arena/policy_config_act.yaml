@@ -23,8 +23,11 @@ observation_mapping:
   state:
     real: observation.state
     sim: robot_joint_pos
-    joint_order: [j1, j2, j3, j4, j5, j6, j7, gripper]
   action:
     real: action
     sim: joint_pos_target
-    joint_order: [j1, j2, j3, j4, j5, j6, j7, gripper]
+
+# 관절 순서·차원은 sim/robot/end_effectors.yaml 프로파일에서 결정 (그리퍼 교체 시 이 한 줄만 변경 + ACT 재학습)
+#   openarm_v1_right_gripper : 8 dof (7 arm + 1 gripper)
+#   openarm_v1_right_orca    : 24 dof (7 arm + 17 ORCA v2)
+embodiment_profile: openarm_v1_right_gripper

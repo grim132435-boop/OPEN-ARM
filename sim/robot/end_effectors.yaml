@@ -1,0 +1,81 @@
+# 엔드이펙터(그리퍼) 프로파일. 정책 관측/행동 차원, sim 관절 이름, 실기 드라이버를 한 곳에서 정의한다.
+# 그리퍼를 바꾸면 policy_config_act.yaml 의 embodiment_profile 만 바꾸고, ACT 는 새 차원으로 재학습한다.
+
+arms:
+  openarm_v1_right:
+    joints:                         # 정책 순서 (semantic) → sim 관절 이름 (openarm_isaac_lab bimanual USD)
+      - {name: j1, sim: openarm_right_joint1}
+      - {name: j2, sim: openarm_right_joint2}
+      - {name: j3, sim: openarm_right_joint3}
+      - {name: j4, sim: openarm_right_joint4}
+      - {name: j5, sim: openarm_right_joint5}
+      - {name: j6, sim: openarm_right_joint6}
+      - {name: j7, sim: openarm_right_joint7}
+    mount_link: openarm_right_link7 # 엔드이펙터 부착 링크
+    real: {driver: socketcan, iface: can_right}
+
+end_effectors:
+  openarm_gripper:
+    dof: 1
+    joints:
+      # 정책 1차원. 상태는 한 손가락 관절에서 읽고, 명령은 양 손가락(.*)에 같은 값으로 보낸다
+      # (openarm_isaac_lab 의 BinaryJointPositionActionCfg 가 "openarm_finger_joint.*" 에 0.044/0.0 를 주는 방식과 동일).
+      # TODO(spark): USD 의 실제 손가락 관절 이름 확인 (USDC 라 오프라인 확인 불가; finger_joint1/2 로 추정).
+      - {name: gripper, sim: openarm_right_finger_joint1, sim_command_expr: "openarm_right_finger_joint.*",
+         range: [0.0, 0.044], unit: m}
+    real: {driver: socketcan, iface: can_right}
+    asset: {source: openarm_isaac_lab, builtin: true}   # 팔 USD 에 포함됨
+
+  orca_hand_v2_right:
+    dof: 17
+    # orca_core v2 joint_ids 순서 = 정책 순서. sim 은 orcahand_description v2 URDF 관절 이름.
+    # 매핑 근거: 손가락 베이스 x-오프셋 순서(pinky 0.036 > ring 0.015 > middle -0.006 > index -0.027)와
+    #           URDF limit ↔ orca_core joint_roms 일치 (wrist -65..35°, index_abd -25..30° 등). test 로 재검증.
+    joints:
+      - {name: wrist,      sim: R-Carpals_8d1f1041_to_TopTower-Model_4a80d30e, range_deg: [-65, 35]}
+      - {name: thumb_cmc,  sim: T-TP-R_1c2b802d_to_R-Carpals_8d1f1041,       range_deg: [-45, 33]}
+      - {name: thumb_abd,  sim: R-T-AP_a9723101_to_T-TP-R_1c2b802d,          range_deg: [-18, 55]}
+      - {name: thumb_mcp,  sim: T-PP_68395e98_to_R-T-AP_a9723101,            range_deg: [-25, 100]}
+      - {name: thumb_dip,  sim: T-DP_b7429e50_to_T-PP_68395e98,              range_deg: [-15, 107]}
+      - {name: index_abd,  sim: I-AP-R_d95d02d1_to_R-Carpals_8d1f1041,       range_deg: [-25, 30]}
+      - {name: index_mcp,  sim: I-PP_bacbd481_to_I-AP-R_d95d02d1,            range_deg: [-25, 100]}
+      - {name: index_pip,  sim: I-FingerTipAssembly_ec49c16c_to_I-PP_bacbd481, range_deg: [-15, 107]}
+      - {name: middle_abd, sim: M-AP_e04a96f2_to_R-Carpals_8d1f1041,         range_deg: [-27, 27]}
+      - {name: middle_mcp, sim: M-PP_08efa608_to_M-AP_e04a96f2,              range_deg: [-25, 100]}
+      - {name: middle_pip, sim: M-FingerTipAssembly_34afb748_to_M-PP_08efa608, range_deg: [-15, 107]}
+      - {name: ring_abd,   sim: M-AP_6ec59111_to_R-Carpals_8d1f1041,         range_deg: [-27, 27]}
+      - {name: ring_mcp,   sim: M-PP_8660a1eb_to_M-AP_6ec59111,              range_deg: [-25, 100]}
+      - {name: ring_pip,   sim: M-FingerTipAssembly_424a8e75_to_M-PP_8660a1eb, range_deg: [-15, 107]}
+      - {name: pinky_abd,  sim: P-AP_f5e42b61_to_R-Carpals_8d1f1041,         range_deg: [-30, 30]}
+      - {name: pinky_mcp,  sim: P-PP_1d411b9b_to_P-AP_f5e42b61,              range_deg: [-25, 100]}
+      - {name: pinky_pip,  sim: P-FingerTipAssembly_cd219176_to_P-PP_1d411b9b, range_deg: [-15, 107]}
+    # 검증 (sim/robot/embodiment_profile.py::check_against_urdf):
+    #  1) 각 관절 limit == range_deg (반전 허용 안 함)
+    #  2) chains: URDF 부모→자식 링크 연결이 이 순서와 일치 (mcp/pip 이름 바뀜 검출)
+    #  3) lateral_order: 손가락 베이스 원점 측방향 순서 (middle/ring 은 limit 이 같아 이걸로 구분)
+    #  4) ORCA_CORE 가 있으면 orca_core joint_ids 순서·joint_roms 와 일치
+    chains:
+      - [wrist, thumb_cmc, thumb_abd, thumb_mcp, thumb_dip]
+      - [wrist, index_abd, index_mcp, index_pip]
+      - [wrist, middle_abd, middle_mcp, middle_pip]
+      - [wrist, ring_abd, ring_mcp, ring_pip]
+      - [wrist, pinky_abd, pinky_mcp, pinky_pip]
+    lateral_order: {joints: [index_abd, middle_abd, ring_abd, pinky_abd], axis: x, increasing: true}
+    real:
+      driver: orca_core             # U2D2(FTDI) 또는 Feetech 버스. motor_type 은 orca_core 가 자동 감지
+      config: orcahand-joint-right  # orca_core/models/v2/<config>/config.yaml
+      port: /dev/orca_right         # udev 고정 이름 (USB 허브 구성 문서 참조)
+      tendon_note: 관절각 ≠ 모터각 (텐던 구동). 정책은 관절 공간, 변환은 orca_core 가 담당
+    asset:
+      source: orcahand_description
+      urdf: v2/models/urdf/orcahand_right.urdf
+      root_link: ForeArmStructure-Model_e18f2368
+      mount:                        # OpenArm link7 → ORCA forearm 고정 조인트 (Spark 에서 CAD 로 확정)
+        parent: openarm_right_link7
+        xyz: [0.0, 0.0, 0.0]        # TODO(spark): 마운트 어댑터 치수
+        rpy_deg: [0, 0, 0]
+      remove_from_arm: ["openarm_right_finger_joint.*", "openarm_right_hand.*"]  # 기존 그리퍼 링크 제거
+
+profiles:                           # policy_config_act.yaml 에서 이름으로 선택
+  openarm_v1_right_gripper: {arm: openarm_v1_right, end_effector: openarm_gripper}
+  openarm_v1_right_orca:    {arm: openarm_v1_right, end_effector: orca_hand_v2_right}

@@ -1,0 +1,12 @@
+# Isaac Sim + Isaac Lab + Arena 실행용 conda 환경.
+# Isaac Sim/Lab/Arena 자체는 scripts/setup_conda_isaac.sh 가 소스에서 설치한다 (pip 휠 대신 로컬 빌드 휠).
+name: openarm-isaac
+channels: [conda-forge]
+dependencies:
+  - python=3.12
+  - pip
+  - uv
+  - git
+  - pyyaml
+  - pyzmq          # Arena 측 ACT 클라이언트
+  - numpy

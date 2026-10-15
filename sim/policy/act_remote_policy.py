@@ -55,8 +55,10 @@ class ActRemoteClosedloopPolicy(PolicyBase[ActRemoteClosedloopPolicyCfg]):
         yml = yaml.safe_load(Path(config.policy_config_yaml_path).read_text())
         self.mapping = yml["observation_mapping"]
         self.cameras: list[str] = [c["sim"] for c in self.mapping["cameras"]]
-        self.joint_order: list[str] = self.mapping["state"]["joint_order"]
-        self.action_dim = len(self.mapping["action"]["joint_order"])
+        from sim.robot.embodiment_profile import load_profile
+
+        self.profile = load_profile(yml["embodiment_profile"])
+        self.action_dim = self.profile.dof
         srv = yml["policy"]["server"]
         self.timeout_ms = int(srv.get("timeout_ms", 2000))
         self.chunk_len = int(yml["policy"]["chunk_size"])

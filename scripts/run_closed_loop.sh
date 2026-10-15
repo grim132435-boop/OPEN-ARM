@@ -11,7 +11,8 @@ while [ $# -gt 0 ]; do case "$1" in --mode) MODE=$2; shift 2;; *) echo "unknown 
 [ "$MODE" = baseline ] || [ "$MODE" = sweep ] || { echo "mode must be baseline|sweep" >&2; exit 2; }
 
 ARENA_DIR=${ARENA_DIR:-${HOME:-/root}/IsaacLab-Arena}
-PY=${ARENA_PYTHON:-python3}          # Isaac Lab venv 의 python 을 ARENA_PYTHON 으로 지정
+PY=${ARENA_PYTHON:-python3}          # openarm-isaac conda env python
+POLICY_PY=${POLICY_PYTHON:-$PY}      # openarm-policy conda env python (torch/lerobot 분리)
 TASK=sim/arena/openarm_cable_insert_task.yaml
 POLICY_CFG=sim/arena/policy_config_act.yaml
 RUN_ID=$(date +%Y%m%d-%H%M%S)-$MODE
@@ -39,7 +40,7 @@ fi
 STARTED=0
 trap '[ $STARTED = 1 ] && kill "$(cat "$PID_FILE" 2>/dev/null)" 2>/dev/null || true' EXIT
 if ! port_open; then
-  nohup "$PY" sim/policy/act_policy_server.py --config "$POLICY_CFG" >"$OUT/policy_server.log" 2>&1 &
+  nohup "$POLICY_PY" sim/policy/act_policy_server.py --config "$POLICY_CFG" >"$OUT/policy_server.log" 2>&1 &
   echo $! >"$PID_FILE"; echo "$CFG_HASH" >"$HASH_FILE"; STARTED=1
   for _ in $(seq 1 60); do port_open && break; sleep 1; done
   port_open || { echo "policy server failed to open port $PORT (see $OUT/policy_server.log)" >&2; exit 3; }

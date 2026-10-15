@@ -12,6 +12,9 @@ network:
 filesystem:
   read:
     - /workspace/OPEN-ARM
+    - /workspace/openarm-sim          # setup_conda_isaac.sh --prefix (Isaac Lab, Arena, OpenArm 자산, ORCA)
+    - /opt/conda/envs/openarm-isaac   # 실제 conda 경로에 맞게 조정 (conda info --base)
+    - /opt/conda/envs/openarm-policy
   write:
     - /workspace/OPEN-ARM/reports
     - /workspace/OPEN-ARM/sim/arena/policy_config_act.yaml
@@ -27,6 +30,8 @@ process:
     - /workspace/OPEN-ARM/scripts/run_closed_loop.sh
     - /bin/bash
     - /usr/bin/python3
+    - /opt/conda/envs/openarm-isaac/bin/python    # ARENA_PYTHON
+    - /opt/conda/envs/openarm-policy/bin/python   # POLICY_PYTHON
     - /usr/bin/env
     - /usr/bin/nohup
     - /usr/bin/tee
@@ -35,7 +40,7 @@ process:
     - /usr/bin/sleep
     - /usr/bin/sha256sum
     - /usr/bin/cut
-  env_passthrough: [ARENA_DIR, ARENA_PYTHON, HOME]
+  env_passthrough: [ARENA_DIR, ARENA_PYTHON, POLICY_PYTHON, OPENARM_ASSETS, ORCA_DESCRIPTION, HOME, OMNI_KIT_ACCEPT_EULA]
 inference:
   provider: ollama
   model: nemotron-3-nano:30b

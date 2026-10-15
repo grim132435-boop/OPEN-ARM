@@ -1,0 +1,12 @@
+# ACT/LeRobot 정책 서버용 conda 환경 (Isaac 과 분리; ZeroMQ 로만 통신).
+name: openarm-policy
+channels: [conda-forge]
+dependencies:
+  - python=3.12
+  - pip
+  - pyyaml
+  - pyzmq
+  - numpy
+  - opencv          # JPEG 왕복 (실기 MJPG 재현)
+  - pip:
+      - lerobot==0.6.2

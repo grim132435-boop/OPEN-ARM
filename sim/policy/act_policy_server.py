@@ -7,8 +7,8 @@ Verified against LeRobot v0.6.x:
   - ``ACTPolicy.predict_action_chunk(batch) -> (B, chunk_size, action_dim)``.
 Batched over Arena envs (B = num_envs).
 
-Run on the DGX Spark:
-    python sim/policy/act_policy_server.py --config sim/arena/policy_config_act.yaml
+Run on the DGX Spark (openarm-policy conda env, from the repo root):
+    PYTHONPATH=. python sim/policy/act_policy_server.py --config sim/arena/policy_config_act.yaml
 
 Wire format (pickle, loopback only):
     {"cmd": "ping"}                                     -> {"ok": true}
@@ -46,6 +46,9 @@ class ActPolicy:
 
         self.torch = torch
         self.mapping = cfg["observation_mapping"]
+        from sim.robot.embodiment_profile import load_profile
+
+        self.profile = load_profile(cfg["embodiment_profile"])
         self.jpeg_roundtrip = bool(cfg["policy"].get("jpeg_roundtrip", True))
         ckpt = Path(cfg["policy"]["checkpoint_dir"])
         if not (ckpt / "config.json").exists():
@@ -58,6 +61,15 @@ class ActPolicy:
         want = int(cfg["policy"]["chunk_size"])
         if want != self.chunk_size:
             raise ValueError(f"policy_config chunk_size={want} but checkpoint chunk_size={self.chunk_size}")
+        act_ft = self.model.config.action_feature  # PolicyFeature from output_features
+        if act_ft is None:
+            raise ValueError("checkpoint config has no action output feature")
+        act_dim = int(act_ft.shape[0])
+        if act_dim != self.profile.dof:
+            raise ValueError(
+                f"checkpoint action dim {act_dim} != profile {self.profile.name} dof {self.profile.dof} "
+                "(end effector changed? retrain ACT on data recorded with this profile)"
+            )
 
     def _jpeg(self, img: np.ndarray) -> np.ndarray:
         """Mimic the real camera pipeline (MJPG) so sim frames carry the same artifacts."""
@@ -82,8 +94,8 @@ class ActPolicy:
                 img = self._jpeg(img)
             batch[cam["real"]] = torch.from_numpy(img).permute(0, 3, 1, 2).float() / 255.0
         state = np.asarray(obs["joint_pos"], dtype=np.float32)
-        if state.shape[1] != len(self.mapping["state"]["joint_order"]):
-            raise ValueError(f"joint_pos dof {state.shape[1]} != mapping {len(self.mapping['state']['joint_order'])}")
+        if state.shape[1] != self.profile.dof:
+            raise ValueError(f"joint_pos dof {state.shape[1]} != profile {self.profile.name} dof {self.profile.dof}")
         batch[self.mapping["state"]["real"]] = torch.from_numpy(state)
         return {k: v.to(self.device) for k, v in batch.items()}
 

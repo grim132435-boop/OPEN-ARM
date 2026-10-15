@@ -1,0 +1,32 @@
+# 버전 고정 — scripts/setup_conda_isaac.sh 와 scripts/validate_scaffold.py 가 읽는다.
+# 근거 (2026-10-15 소스 확인): Isaac Lab-Arena release/0.3.0 의 submodules/IsaacLab 은 af1bab4 를 가리키고,
+#   그 커밋의 isaaclab[isaacsim] 은 isaacsim==6.0.1.0, Arena uv.lock 은 isaacsim-core 6.0.1.0 + torch 2.11.0 으로 해석된다.
+#   (wheel 경로 isaaclab==3.0.0b2 는 isaacsim-core==6.0.0.1 — 둘 다 6.0.x)
+python: "3.12"
+
+isaacsim:
+  repo: https://github.com/isaac-sim/IsaacSim.git
+  ref: v6.0.1                 # Arena 0.3.0 호환. 6.1/6.2/6.3 빌드는 --allow-version-mismatch 필요
+  compatible_minor: "6.0"
+  gcc: "11"                   # Isaac Sim 소스 빌드 요구 (Ubuntu 24.04 에서도 GCC 11)
+
+isaaclab:
+  repo: https://github.com/isaac-sim/IsaacLab.git
+  ref: af1bab4dc173ba69b08fab779c14ead61d13fd33   # Arena 0.3.0 submodule 커밋 (= v3.0.0-beta2 계열)
+
+arena:
+  repo: https://github.com/isaac-sim/IsaacLab-Arena.git
+  ref: release/0.3.0
+
+openarm_isaac_lab:
+  repo: https://github.com/enactic/openarm_isaac_lab.git
+  ref: cb7ff7547bdb81f290591edb9302b4845b1d49a7   # 원본은 Isaac Lab 2.3 / Python 3.11 기준. USD 자산만 재사용한다.
+
+orca:
+  description_repo: https://github.com/orcahand/orcahand_description.git
+  description_ref: b9b349a21ee0238c62b6cf92ae7597027867adf8   # v2/models/urdf/orcahand_{left,right}.urdf
+  core_repo: https://github.com/orcahand/orca_core.git
+  core_ref: d785c834d761ee37800657d80d6069ad2ab5c220          # models/v2/orcahand-joint-right/config.yaml
+
+policy_env:                   # 정책 서버는 별도 conda env (torch/lerobot 가 Isaac 의 torch 고정과 충돌하지 않도록)
+  lerobot: "0.6.2"

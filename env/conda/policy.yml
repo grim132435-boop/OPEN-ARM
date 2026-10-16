@@ -7,6 +7,6 @@ dependencies:
   - pyyaml
   - pyzmq
   - numpy
-  - opencv          # JPEG 왕복 (실기 MJPG 재현)
+  - opencv
   - pip:
-      - lerobot==0.6.2
+      - lerobot[intelrealsense]==0.6.2   # pyrealsense2 (D455f / D405). aarch64 에서 휠이 없으면 docs/setup-conda.md 참고

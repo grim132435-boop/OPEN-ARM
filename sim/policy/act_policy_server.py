@@ -49,7 +49,7 @@ class ActPolicy:
         from sim.robot.embodiment_profile import load_profile
 
         self.profile = load_profile(cfg["embodiment_profile"])
-        self.jpeg_roundtrip = bool(cfg["policy"].get("jpeg_roundtrip", True))
+        self.jpeg_roundtrip = bool(cfg["policy"].get("jpeg_roundtrip", False))
         ckpt = Path(cfg["policy"]["checkpoint_dir"])
         if not (ckpt / "config.json").exists():
             raise FileNotFoundError(f"{ckpt} is not a LeRobot pretrained_model dir (no config.json)")
@@ -72,7 +72,7 @@ class ActPolicy:
             )
 
     def _jpeg(self, img: np.ndarray) -> np.ndarray:
-        """Mimic the real camera pipeline (MJPG) so sim frames carry the same artifacts."""
+        """Mimic an MJPG webcam pipeline so sim frames carry the same artifacts (off for RealSense)."""
         import cv2
 
         out = np.empty_like(img)

@@ -12,14 +12,18 @@ policy:
   checkpoint_dir: checkpoints/act_cable_insert/pretrained_model
   chunk_size: 50        # 체크포인트 ACTConfig.chunk_size 와 같아야 함 (서버가 검증)
   action_horizon: 25    # 청크 중 실제 실행할 스텝 수 (1..chunk_size). 에이전트 조정 가능
-  jpeg_roundtrip: true  # 실기 MJPG 파이프라인과 동일한 압축 아티팩트 재현
+  # 실기 카메라가 MJPG 웹캠일 때만 true. RealSense 는 librealsense 로 비압축 RGB 를 받으므로 false.
+  # (남는 차이: LeRobot 데이터셋은 영상을 비디오 코덱으로 저장 → 학습 프레임엔 코덱 흔적이 있음)
+  jpeg_roundtrip: false
 
 # 관측 매핑 — 실기(LeRobot 데이터셋 키) ↔ sim(Arena camera_obs 키) 1:1
 observation_mapping:
+  # 실기: RealSense, LeRobot `intelrealsense` 카메라 (RGB 640x480 @30fps, use_depth: false), 시리얼 번호로 식별.
+  # sim 카메라는 같은 해상도·화각으로 만든다 (D455f 컬러 약 90°x65°, D405 약 87°x58° — Spark 에서 데이터시트로 확정).
   cameras:
-    - {real: observation.images.cam_high,  sim: cam_high,  resolution: [480, 640]}
-    - {real: observation.images.cam_wrist, sim: cam_wrist, resolution: [480, 640]}
-    - {real: observation.images.cam_side,  sim: cam_side,  resolution: [480, 640]}
+    - {real: observation.images.cam_high,  sim: cam_high,  resolution: [480, 640], hw: realsense_d455f}
+    - {real: observation.images.cam_wrist, sim: cam_wrist, resolution: [480, 640], hw: realsense_d405}
+    - {real: observation.images.cam_side,  sim: cam_side,  resolution: [480, 640], hw: realsense_d405}
   state:
     real: observation.state
     sim: robot_joint_pos

@@ -51,6 +51,15 @@ scripts/setup_conda_isaac.sh --isaacsim-src ~/IsaacSim --reuse-build --allow-ver
 ## OpenArm 원본 저장소 주의
 `enactic/openarm_isaac_lab` 은 Isaac Lab 2.3 / Python 3.11 / Isaac Sim 5.1 기준이고, 내부 import 가 `from source.openarm.openarm...` 형태라 저장소 루트를 CWD 로 요구합니다. 이 프로젝트는 **USD 자산과 관절 설정값만** 재사용하고 그 파이썬 패키지는 설치하지 않습니다 (`OPENARM_ASSETS` 환경변수로 경로 전달).
 
+## RealSense (openarm-policy env)
+`lerobot[intelrealsense]` 가 `pyrealsense2` 를 설치합니다. DGX Spark(aarch64)에서 pip 휠이 없으면 librealsense 를 소스로 빌드합니다 (커널 패치가 필요 없는 RSUSB 백엔드):
+```bash
+git clone https://github.com/IntelRealSense/librealsense.git && cd librealsense && mkdir build && cd build
+cmake .. -DFORCE_RSUSB_BACKEND=ON -DBUILD_PYTHON_BINDINGS=ON -DPYTHON_EXECUTABLE=$POLICY_PYTHON -DCMAKE_BUILD_TYPE=Release
+make -j"$(nproc)" && sudo make install && sudo cp ../config/99-realsense-libusb.rules /etc/udev/rules.d/ && sudo udevadm control --reload
+```
+확인: `rs-enumerate-devices -s` 로 3대의 시리얼과 USB 타입(3.2)이 보여야 합니다.
+
 ## 문제 해결
 | 증상 | 원인/조치 |
 |---|---|

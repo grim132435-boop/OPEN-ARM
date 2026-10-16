@@ -37,7 +37,7 @@
 
 ### Phase C — 정책 서버
 1. `sim/policy/act_policy_server.py`: LeRobot ACT `pretrained_model` 디렉터리를 pre/post-processor 와 함께 로드, 배치(num_envs) 관측 → `(B, chunk, dof)` 청크를 ZeroMQ 로 서빙. Arena 측 `act_remote_policy.py` 는 `PolicyBase` + `ActionChunkScheduler` 로 청크를 재생. GR00T 기준선은 Isaac-GR00T 표준 서버(5555).
-2. 관측 매핑: sim 카메라 3대 → 실기와 동일한 이름/해상도/MJPEG 압축 여부, 관절 순서 동일. **sim-real 관측 불일치가 가장 흔한 실패 원인**이므로 `scripts/validate_scaffold.py` 가 매핑 테이블을 검사합니다.
+2. 관측 매핑: sim 카메라 3대 → 실기(RealSense D455f 1 + D405 2, RGB 640x480@30)와 동일한 이름/해상도/화각, 관절 순서 동일. RealSense 는 비압축이라 JPEG 왕복은 끔. **sim-real 관측 불일치가 가장 흔한 실패 원인**이므로 `scripts/validate_scaffold.py` 가 매핑 테이블을 검사합니다.
 
 ### Phase D — 폐루프 에이전트
 1. 에이전트(NemoClaw 샌드박스 내 Nemotron)가 `scripts/run_closed_loop.sh` 를 호출해 평가 실행.

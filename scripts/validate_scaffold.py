@@ -116,6 +116,8 @@ def main() -> int:
     for c in m["cameras"]:
         if c["resolution"] != res0:
             errs.append(f"{c['sim']}: resolution differs from first camera")
+    if pol["policy"].get("jpeg_roundtrip") and any(str(c.get("hw", "")).startswith("realsense") for c in m["cameras"]):
+        errs.append("jpeg_roundtrip must be false for RealSense cameras (uncompressed RGB)")
     if task["task"]["embodiment"]["control"] != "joint_position":
         errs.append("embodiment.control must be joint_position for ACT")
 

@@ -50,12 +50,15 @@ box:                         # 왼쪽 배출 박스 (로봇 왼쪽, y>0)
   x: [0.18, 0.32]
   y: [0.20, 0.36]
   wall_height: 0.08
-  release_tcp_above_table: 0.16   # 벽 위 8 cm 에서 놓기
+  release_tcp_above_table: 0.12   # 벽 위 4 cm 에서 놓기
+  release_orientation: forward_horizontal   # 실기 한계(LeRobot)에서는 왼팔 수직(top-down) 자세가 박스 위에서 거의 불가.
+                                            # 그리퍼를 전방(+x) 수평으로 두면 박스 영역 36점 중 33점이 관절 여유 10° 이상 (2026-10-16 분석)
 
 handover:                    # HA2: 두 그리퍼 수평으로 마주보기 (오른손 접근 +y, 왼손 접근 −y)
   center: [0.30, 0.0, 0.53]  # 명치~배꼽 높이, 몸 앞 0.30 m, 상판 위 0.18 m
   tcp_gap: 0.10              # 두 손 파지점 간격 (케이블 따라 ≥ 80–100 mm)
   sequence: [left_close, hold_0.5s, right_open, right_retreat_first]
+  fingers: {right: closing_axis_up, left: closing_axis_down}   # 평행 그리퍼 180° 대칭 — 좌우 거울상이라 손가락 방향이 반대여야 관절 한계 안에 들어옴
 
 cameras:                     # 시뮬 카메라 = 실기 RealSense, 640x480@30
   cam_chest: {hw: realsense_d455f, mount: body_link0, xyz: [0.06, 0.0, 0.70], pitch_down_deg: 55}   # 가정값, 실측 필요

@@ -130,20 +130,49 @@ def topdown_rot(yaw: float) -> np.ndarray:
     return np.column_stack([x, np.cross(z, x), z])
 
 
-def horizontal_rot(approach_y: float) -> np.ndarray:
-    """Tool z horizontal along +-y (approach), fingers closing vertically (tool y = world z)."""
+def horizontal_rot(approach_y: float, fingers_up: float = 1.0) -> np.ndarray:
+    """Tool z horizontal along +-y (approach), fingers closing vertically (tool y = +-world z)."""
     z = np.array([0.0, approach_y, 0.0])
-    y = np.array([0.0, 0.0, 1.0])
+    y = np.array([0.0, 0.0, fingers_up])
     return np.column_stack([np.cross(y, z), y, z])
 
 
-def yaw_map(arm: Arm, xs, ys, z, yaws):
+def flip_about_tool_z(rot: np.ndarray) -> np.ndarray:
+    """Same grasp for a parallel gripper: rotate 180 deg about the tool z axis."""
+    return rot @ np.diag([-1.0, -1.0, 1.0])
+
+
+def ik_sym(arm: "Arm", pos: np.ndarray, rot: np.ndarray, **kw):
+    """IK accepting either of the two equivalent parallel-gripper grasps; returns the one with more margin."""
+    a = arm.ik(pos, rot, **kw)
+    if a[0] and a[2] >= MARGIN_DEG:
+        return a
+    b = arm.ik(pos, flip_about_tool_z(rot), **kw)
+    cands = [c for c in (a, b) if c[0]]
+    return max(cands, key=lambda c: c[2]) if cands else a
+
+
+def forward_rot(spin: float) -> np.ndarray:
+    """Tool z horizontal pointing forward (+x), spun by `spin` about tool z."""
+    z = np.array([1.0, 0.0, 0.0])
+    y0 = np.array([0.0, 0.0, 1.0])
+    x0 = np.cross(y0, z)
+    c, s = math.cos(spin), math.sin(spin)
+    return np.column_stack([c * x0 + s * y0, -s * x0 + c * y0, z])
+
+
+ORIENTATIONS = {"topdown": topdown_rot, "forward_horizontal": forward_rot}
+
+
+def yaw_map(arm: Arm, xs, ys, z, yaws, orientation: str = "topdown"):
+    """Fraction of sampled spins about the tool axis that are reachable with >= MARGIN_DEG margin."""
+    make = ORIENTATIONS[orientation]
     frac = np.zeros((len(xs), len(ys)))
     for i, x in enumerate(xs):
         for j, y in enumerate(ys):
             good = 0
             for yaw in yaws:
-                ok, _, margin = arm.ik(np.array([x, y, z]), topdown_rot(yaw), seeds=4, iters=80)
+                ok, _, margin = ik_sym(arm, np.array([x, y, z]), make(yaw), seeds=4, iters=100)
                 good += ok and margin >= MARGIN_DEG
             frac[i, j] = good / len(yaws)
     return frac
@@ -206,12 +235,12 @@ def main() -> int:
     dz, bz, ho = wb["drop_zone"], wb["box"], wb["handover"]
     xs = np.round(np.arange(0.06, 0.50 + 1e-9, a.step), 3)
     ys = np.round(np.arange(-0.62, 0.62 + 1e-9, a.step), 3)
-    yaws = np.radians(np.arange(-90, 90, 30))
+    yaws = np.radians(np.arange(-90, 90, 30))   # 180 deg covers all grasps: yaw+180 is tried by ik_sym
     report = {"workbench": str(a.workbench), "grasp_tcp_z": grasp_z, "place_tcp_z": place_z, "margin_deg": MARGIN_DEG}
     for lim in (["lerobot", "urdf"] if a.limits == "both" else [a.limits]):
         right, left = Arm(a.urdf, "right", lim), Arm(a.urdf, "left", lim)
-        fr = yaw_map(right, xs, ys[ys <= 0.1], grasp_z, yaws)
-        fl = yaw_map(left, xs, ys[ys >= -0.1], place_z, yaws)
+        fr = yaw_map(right, xs, ys[ys <= 0.1], grasp_z, yaws, "topdown")
+        fl = yaw_map(left, xs, ys[ys >= -0.1], place_z, yaws, bz.get("release_orientation", "topdown"))
         ysr, ysl = ys[ys <= 0.1], ys[ys >= -0.1]
 
         def zone_stats(frac, ysub, zone):
@@ -223,8 +252,8 @@ def main() -> int:
         rep = {"drop_zone_right": zone_stats(fr, ysr, dz), "box_zone_left": zone_stats(fl, ysl, bz)}
         c = np.array(ho["center"])
         gap = ho["tcp_gap"] / 2
-        okr, qr, mr = right.ik(c + [0, -gap, 0], horizontal_rot(+1.0), seeds=16)
-        okl, ql, ml = left.ik(c + [0, +gap, 0], horizontal_rot(-1.0), seeds=16)
+        okr, qr, mr = ik_sym(right, c + [0, -gap, 0], horizontal_rot(+1.0), seeds=16, iters=150)
+        okl, ql, ml = ik_sym(left, c + [0, +gap, 0], horizontal_rot(-1.0), seeds=16, iters=150)
         rep["handover"] = {"center": ho["center"], "right_ok": bool(okr), "left_ok": bool(okl),
                            "right_margin_deg": round(mr, 1), "left_margin_deg": round(ml, 1),
                            "right_q_deg": None if qr is None else np.degrees(qr).round(1).tolist(),
@@ -232,8 +261,8 @@ def main() -> int:
         sweep = []
         for hx in (0.22, 0.26, 0.30, 0.34):
             for hz in (top + 0.10, top + 0.15, top + 0.20, top + 0.25, top + 0.30):
-                o1, _, m1 = right.ik(np.array([hx, -gap, hz]), horizontal_rot(+1.0), seeds=8)
-                o2, _, m2 = left.ik(np.array([hx, gap, hz]), horizontal_rot(-1.0), seeds=8)
+                o1, _, m1 = ik_sym(right, np.array([hx, -gap, hz]), horizontal_rot(+1.0), seeds=8, iters=150)
+                o2, _, m2 = ik_sym(left, np.array([hx, gap, hz]), horizontal_rot(-1.0), seeds=8, iters=150)
                 sweep.append({"x": hx, "z": round(hz, 3), "z_above_table": round(hz - top, 3), "ok": bool(o1 and o2),
                               "min_margin_deg": round(min(m1, m2), 1) if (o1 and o2) else None})
         rep["handover_sweep"] = sweep
@@ -241,7 +270,7 @@ def main() -> int:
         rects = [("drop zone", (dz["x"][0], dz["x"][1], dz["y"][0], dz["y"][1]), "#c0392b"),
                  ("box", (bz["x"][0], bz["x"][1], bz["y"][0], bz["y"][1]), "#1f6fb2")]
         svg_map(a.out / f"pick_right_{lim}.svg", f"Right arm top-down pick, TCP z={grasp_z:.3f} m ({lim} limits)", xs, ysr, fr, rects)
-        svg_map(a.out / f"place_left_{lim}.svg", f"Left arm top-down place, TCP z={place_z:.3f} m ({lim} limits)", xs, ysl, fl, rects)
+        svg_map(a.out / f"place_left_{lim}.svg", f"Left arm place ({bz.get('release_orientation', 'topdown')}), TCP z={place_z:.3f} m ({lim} limits)", xs, ysl, fl, rects)
     (a.out / "reach.json").write_text(json.dumps(report, indent=2))
     print(json.dumps({k: v for k, v in report.items() if k in ("lerobot", "urdf")}, indent=1)[:6000])
     return 0

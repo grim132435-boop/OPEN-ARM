@@ -21,9 +21,10 @@ observation_mapping:
   # 실기: RealSense, LeRobot `intelrealsense` 카메라 (RGB 640x480 @30fps, use_depth: false), 시리얼 번호로 식별.
   # sim 카메라는 같은 해상도·화각으로 만든다 (D455f 컬러 약 90°x65°, D405 약 87°x58° — Spark 에서 데이터시트로 확정).
   cameras:
-    - {real: observation.images.cam_high,  sim: cam_high,  resolution: [480, 640], hw: realsense_d455f}
-    - {real: observation.images.cam_wrist, sim: cam_wrist, resolution: [480, 640], hw: realsense_d405}
-    - {real: observation.images.cam_side,  sim: cam_side,  resolution: [480, 640], hw: realsense_d405}
+    # 장착 위치: D455f = 가슴(상체 정면), D405 = 좌/우 손목. 실기 LeRobot 카메라 키도 같은 이름으로 기록할 것.
+    - {real: observation.images.cam_chest,       sim: cam_chest,       resolution: [480, 640], hw: realsense_d455f}
+    - {real: observation.images.cam_wrist_right, sim: cam_wrist_right, resolution: [480, 640], hw: realsense_d405}
+    - {real: observation.images.cam_wrist_left,  sim: cam_wrist_left,  resolution: [480, 640], hw: realsense_d405}
   state:
     real: observation.state
     sim: robot_joint_pos

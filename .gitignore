@@ -2,3 +2,14 @@ __pycache__/
 *.pyc
 reports/
 checkpoints/
+# 기밀/대용량 산출물 — 저장소에 넣지 않음 (docs/plan-bimanual-handover-demo.md §7)
+*.pptx
+*.pdf
+*.dwg
+*.dxf
+*.step
+*.stp
+*.mp4
+*.mov
+data/
+outputs/

@@ -4,8 +4,10 @@
 
 ## 한 줄 요약
 ```bash
-scripts/setup_conda_isaac.sh --with-policy-env      # v6.0.1 새로 빌드 (권장)
+scripts/setup_conda_isaac.sh --pip --with-policy-env   # 빠른 경로: 6.0.1.0 pip 휠 (aarch64 휠 있음)
+scripts/setup_conda_isaac.sh --with-policy-env         # v6.0.1 소스 빌드
 ```
+`--pip` 은 Isaac Lab 문서 순서(Isaac Sim 휠 → torch 2.10.0 cu130/cu128)를 따르고, aarch64 에서는 `libgomp`·`libcarb` LD_PRELOAD 를 conda 활성화 훅으로 넣습니다.
 
 ## 구조: conda 환경 2개
 ```

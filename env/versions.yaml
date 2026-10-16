@@ -8,7 +8,14 @@ isaacsim:
   repo: https://github.com/isaac-sim/IsaacSim.git
   ref: v6.0.1                 # Arena 0.3.0 호환. 6.1/6.2/6.3 빌드는 --allow-version-mismatch 필요
   compatible_minor: "6.0"
+  pip_version: "6.0.1.0"      # --pip 경로. pypi.nvidia.com 에 cp312 manylinux_2_35_aarch64/x86_64 휠 존재 (Arena uv.lock 확인)
   gcc: "11"                   # Isaac Sim 소스 빌드 요구 (Ubuntu 24.04 에서도 GCC 11)
+
+torch:                        # Isaac Lab af1bab4 pip 설치 문서 기준 (DGX Spark 는 CUDA ≥ 13 → cu130)
+  version: "2.10.0"
+  torchvision: "0.25.0"
+  index_aarch64: https://download.pytorch.org/whl/cu130
+  index_x86_64: https://download.pytorch.org/whl/cu128
 
 isaaclab:
   repo: https://github.com/isaac-sim/IsaacLab.git

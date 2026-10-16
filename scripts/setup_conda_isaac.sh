@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Isaac Sim(소스 빌드) + Isaac Lab + Arena 를 conda 환경에 설치한다. DGX Spark(aarch64) / x86_64 공용.
 #
-#   scripts/setup_conda_isaac.sh                         # 권장: v6.0.1 새로 빌드 (Arena 0.3.0 호환)
+#   scripts/setup_conda_isaac.sh --pip                   # 빠른 경로: pypi.nvidia.com 6.0.1.0 휠 (aarch64/x86 모두 있음)
+#   scripts/setup_conda_isaac.sh                         # v6.0.1 소스 빌드 (Arena 0.3.0 호환)
 #   scripts/setup_conda_isaac.sh --isaacsim-src ~/IsaacSim --reuse-build --allow-version-mismatch
 #                                                        # 기존(예: 6.3) 빌드 재사용 — 호환 미보장
 # 옵션:
 #   --prefix DIR               소스 체크아웃 위치 (기본 ~/openarm-sim)
 #   --env NAME                 conda env 이름 (기본 openarm-isaac)
+#   --pip                      소스 빌드 대신 isaacsim[all,extscache]==<versions.yaml isaacsim.pip_version> 를 pip 로 설치
 #   --isaacsim-src DIR         기존 IsaacSim 소스 트리 사용 (없으면 versions.yaml ref 로 새로 받음)
 #   --reuse-build              _build 와 휠이 있으면 빌드/휠 생성 생략
 #   --allow-version-mismatch   Isaac Sim minor 가 versions.yaml compatible_minor 와 달라도 진행
@@ -16,12 +18,13 @@ set -euo pipefail
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 V="$REPO/env/versions.yaml"
 
-PREFIX=${HOME:-/root}/openarm-sim; ENV_NAME=openarm-isaac; SIM_SRC=""; REUSE=0; ALLOW_MISMATCH=0; POLICY_ENV=0; DRY=0
+PREFIX=${HOME:-/root}/openarm-sim; ENV_NAME=openarm-isaac; SIM_SRC=""; REUSE=0; ALLOW_MISMATCH=0; POLICY_ENV=0; DRY=0; PIP=0
 while [ $# -gt 0 ]; do case "$1" in
   --prefix) PREFIX=$2; shift 2;; --env) ENV_NAME=$2; shift 2;;
   --isaacsim-src) SIM_SRC=$2; shift 2;; --reuse-build) REUSE=1; shift;;
   --allow-version-mismatch) ALLOW_MISMATCH=1; shift;; --with-policy-env) POLICY_ENV=1; shift;;
-  --dry-run) DRY=1; shift;; -h|--help) sed -n 2,16p "$0"; exit 0;;
+  --pip) PIP=1; shift;;
+  --dry-run) DRY=1; shift;; -h|--help) sed -n 2,18p "$0"; exit 0;;
   *) echo "unknown arg $1" >&2; exit 2;; esac; done
 
 run(){ printf '+'; printf ' %q' "$@"; echo; [ $DRY = 1 ] || "$@"; }
@@ -46,14 +49,18 @@ command -v conda >/dev/null || { echo "conda 가 필요합니다 (Miniforge 권�
 python3 -c 'import yaml' 2>/dev/null || { echo "호스트 python3 에 PyYAML 필요: pip install pyyaml" >&2; exit 1; }
 git lfs version >/dev/null 2>&1 || { echo "git-lfs 필요: sudo apt install git-lfs (Isaac Sim 자산이 LFS)" >&2; [ $DRY = 1 ] || exit 1; }
 GCC_WANT=$(ver isaacsim.gcc)
-if ! gcc --version 2>/dev/null | head -1 | grep -q " ${GCC_WANT}\."; then
+if [ $PIP = 0 ] && ! gcc --version 2>/dev/null | head -1 | grep -q " ${GCC_WANT}\."; then
   echo "WARN: Isaac Sim 빌드는 GCC ${GCC_WANT} 필요. sudo apt install gcc-${GCC_WANT} g++-${GCC_WANT} 후" \
        "update-alternatives 로 전환하세요 (README: GCC 12+ 미지원)."
 fi
-[ "$ARCH" = aarch64 ] && echo "aarch64: libx11-dev xorg-dev 필요 (휠 없는 의존성 빌드용)"
+[ "$ARCH" = aarch64 ] && echo "aarch64: sudo apt install python3.12-dev libgl1-mesa-dev libx11-dev libxcursor-dev libxi-dev libxinerama-dev libxrandr-dev xorg-dev (imgui-bundle·quadprog 소스 빌드용, Isaac Lab 문서)"
 export OMNI_KIT_ACCEPT_EULA=${OMNI_KIT_ACCEPT_EULA:-YES}   # 비대화식 import 시 EULA 프롬프트 방지 (사용자 동의 전제)
 mkdir -p "$PREFIX"
 
+if [ $PIP = 1 ]; then
+  SIM_VER=$(ver isaacsim.pip_version); SIM_VER_BASE=${SIM_VER%.*}   # 6.0.1.0 → 6.0.1
+  step "1-3. Isaac Sim pip 경로 ($SIM_VER) — 소스 빌드 생략"
+else
 step "1. Isaac Sim 소스"
 if [ -n "$SIM_SRC" ]; then
   SIM_DIR=$(cd "$SIM_SRC" && pwd)
@@ -91,6 +98,7 @@ else
   in_dir "$SIM_DIR" ./repo.sh comment_archive_deps
   in_dir "$SIM_DIR" ./repo.sh python_package --wheel
 fi
+fi   # PIP=0
 
 step "4. conda env: $ENV_NAME"
 if [ $DRY = 0 ] && conda env list | awk '{print $1}' | grep -qx "$ENV_NAME"; then echo "이미 존재 — 재사용"
@@ -103,13 +111,36 @@ fi
 [ "$PYV" = "$(ver python)" ] || { echo "env python $PYV ≠ $(ver python)" >&2; exit 5; }
 UVPIP=(conda run -n "$ENV_NAME" uv pip install --python "$CPY")
 
-step "5. Isaac Sim 휠 → conda env"
-shopt -s nullglob; WHEELS=("$DIST"/*"$SIM_VER_BASE"*.whl); shopt -u nullglob
-if [ ${#WHEELS[@]} -eq 0 ]; then
-  if [ $DRY = 1 ]; then WHEELS=("$DIST/isaacsim-*${SIM_VER_BASE}*.whl")
-  else echo "휠 없음: $DIST/*${SIM_VER_BASE}*.whl" >&2; exit 6; fi
+if [ $PIP = 1 ]; then
+  step "5. Isaac Sim pip 설치 + CUDA torch (Isaac Lab af1bab4 docs/setup/installation/pip_installation.rst 순서)"
+  run "${UVPIP[@]}" "isaacsim[all,extscache]==$SIM_VER" --extra-index-url https://pypi.nvidia.com \
+      --index-strategy unsafe-best-match --prerelease=allow
+  if [ "$ARCH" = aarch64 ]; then TORCH_IDX=$(ver torch.index_aarch64); else TORCH_IDX=$(ver torch.index_x86_64); fi
+  run "${UVPIP[@]}" -U "torch==$(ver torch.version)" "torchvision==$(ver torch.torchvision)" --index-url "$TORCH_IDX"
+else
+  step "5. Isaac Sim 휠 → conda env"
+  shopt -s nullglob; WHEELS=("$DIST"/*"$SIM_VER_BASE"*.whl); shopt -u nullglob
+  if [ ${#WHEELS[@]} -eq 0 ]; then
+    if [ $DRY = 1 ]; then WHEELS=("$DIST/isaacsim-*${SIM_VER_BASE}*.whl")
+    else echo "휠 없음: $DIST/*${SIM_VER_BASE}*.whl" >&2; exit 6; fi
+  fi
+  run "${UVPIP[@]}" "${WHEELS[@]}"
 fi
-run "${UVPIP[@]}" "${WHEELS[@]}"
+
+if [ "$ARCH" = aarch64 ]; then
+  # aarch64: 시스템 libgomp + libcarb TLS 프리로드 (Isaac Lab 문서). conda 활성화 훅으로 고정한다.
+  HOOK_DIR=$(dirname "$(dirname "$CPY")")/etc/conda/activate.d
+  step "5b. aarch64 LD_PRELOAD 훅: $HOOK_DIR/openarm_isaac_preload.sh"
+  if [ $DRY = 0 ]; then
+    mkdir -p "$HOOK_DIR"
+    cat >"$HOOK_DIR/openarm_isaac_preload.sh" <<'HOOK'
+unset LD_PRELOAD
+_carb=$(python -c "import sys,os;[print(os.path.join(p,'omni','client','libcarb.so')) for p in sys.path if os.path.isfile(os.path.join(p,'omni','client','libcarb.so'))]" 2>/dev/null | head -1)
+export LD_PRELOAD=/lib/aarch64-linux-gnu/libgomp.so.1${_carb:+:$_carb}
+unset _carb
+HOOK
+  fi
+fi
 
 # 이후 단계가 torch 스택을 바꾸지 않도록 Isaac Sim 휠이 설치한 버전을 고정
 CONSTRAINTS="$PREFIX/isaac-constraints.txt"

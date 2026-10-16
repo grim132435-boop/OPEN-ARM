@@ -1,0 +1,63 @@
+# cable-cell 워크벤치 파라미터 (코드명). 고객명·도면은 이 저장소에 넣지 않는다.
+# 좌표계: OpenArm body_link0 (몸통 발판 아래면) 기준, x = 로봇 전방, y = 로봇 왼쪽, z = 위. 단위 m.
+# "오른쪽" = 로봇 기준 오른쪽 = y < 0. 작업자 시점 도면을 옮길 때는 좌우를 바꿀 것.
+# 상태: 파라메트릭 초안. 실제 검토안 치수(C:\research, 미수신)를 받으면 값만 바꾸고
+#       tools/reach/openarm_reach.py 를 다시 돌려 확인한다.
+version: 1
+robot:
+  model: openarm_v1.0
+  urdf: openarm_description/assets/robot/openarm_v1.0/urdf/example/v1.urdf   # enactic/openarm_description
+  shoulder_z: 0.698          # j2 축 높이 (body_link0 기준, URDF FK)
+  shoulder_y: 0.1535         # 좌우 어깨 간격의 절반
+  tcp_from_shoulder: 0.622   # 팔 최대 길이 (어깨 → TCP)
+  base_footprint: {x: [-0.155, 0.095], y: [-0.095, 0.095]}   # 발판 STL bbox, 실측 필요
+  mount: bolted              # 전도 여유가 작음(양팔 전방 수평 시 ~1 cm) → 볼트/클램프 고정 전제
+
+table:
+  top_z: 0.35                # 결정(2026-10-16): 발판 + 0.35 m = 어깨 아래 0.348 m. 수직 파지 면적 최대 구간
+  front_edge_x: 0.08         # 몸통 중심 → 상판 앞 가장자리. 발판(0.095)과 겹치면 컷아웃
+  depth: 0.55                # 앞 가장자리부터 (x 0.08 → 0.63). 도달 한계 x≈0.45 이후는 수납·배선 영역
+  width: 1.20                # y −0.60 .. +0.60
+  surface: matte_rubber_mat_3to5mm   # 반사 억제(RealSense) + 파지 시 손끝 접촉 허용
+
+partition:                   # 가운데 소켓 판 (통전 검사대). 실기에는 존재, 치수 미정
+  real_cell: true
+  sim_demo: false            # 사용자 요청: 시뮬 시연에서는 제거
+  x: [0.10, 0.60]            # TBD
+  y_center: 0.0
+  thickness: 0.02            # TBD
+  height_above_table: null   # TBD — 핸드오버(상판 위 0.15–0.20 m) 가능 여부를 결정함
+  sockets: []                # TBD — [{x, z_above_table, normal: [..]}]
+
+cable:                       # 기준 케이블 1종 (사용자 선택: 커넥터 달린 짧은 하네스)
+  length: 0.30
+  outer_diameter: 0.0055
+  connector: {size: [0.020, 0.012, 0.010], mass: 0.008}   # 가정값, 실측 필요
+  linear_mass: 0.03          # kg/m, 가정값
+  color: orange              # 상판(무광 흑/회)과 대비
+  grasp_tcp_above_table: 0.015   # TCP 는 손끝보다 ~9 mm 위 → 손끝이 상판 위 ~6 mm
+  right_grasp: connector     # 오른손: 커넥터
+  left_grasp: body_100mm_from_connector   # 왼손: 커넥터에서 100 mm 떨어진 몸통
+
+drop_zone:                   # 오른쪽 낙하 영역 (로봇 오른쪽, y<0)
+  x: [0.12, 0.38]
+  y: [-0.38, -0.12]
+  exclude_corner: {x_min: 0.30, y_min: -0.25}   # 수직 파지 해 없음(분석), 낙하 샘플에서 제외
+  drop_height_above_table: 0.10
+  settle_s: 1.5
+
+box:                         # 왼쪽 배출 박스 (로봇 왼쪽, y>0)
+  x: [0.18, 0.32]
+  y: [0.20, 0.36]
+  wall_height: 0.08
+  release_tcp_above_table: 0.16   # 벽 위 8 cm 에서 놓기
+
+handover:                    # HA2: 두 그리퍼 수평으로 마주보기 (오른손 접근 +y, 왼손 접근 −y)
+  center: [0.30, 0.0, 0.53]  # 명치~배꼽 높이, 몸 앞 0.30 m, 상판 위 0.18 m
+  tcp_gap: 0.10              # 두 손 파지점 간격 (케이블 따라 ≥ 80–100 mm)
+  sequence: [left_close, hold_0.5s, right_open, right_retreat_first]
+
+cameras:                     # 시뮬 카메라 = 실기 RealSense, 640x480@30
+  cam_chest: {hw: realsense_d455f, mount: body_link0, xyz: [0.06, 0.0, 0.70], pitch_down_deg: 55}   # 가정값, 실측 필요
+  cam_wrist_right: {hw: realsense_d405, mount: openarm_right_link7}
+  cam_wrist_left: {hw: realsense_d405, mount: openarm_left_link7}

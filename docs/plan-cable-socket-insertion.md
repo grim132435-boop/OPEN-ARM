@@ -15,7 +15,7 @@
 
 ## 1. 하드웨어/소프트웨어 전제 (중요)
 
-- **DGX Spark는 arm64(GB10)** 입니다. Isaac Sim pip 패키지는 x86_64 전용이므로 **공식 DGX Spark 플레이북의 소스 빌드 경로**를 따라야 합니다 (`NVIDIA/dgx-spark-playbooks/nvidia/isaac`). 빌드 실패 시 대안은 Isaac Lab 3.0의 **Kit-less(Newton) 모드**이며, 이 경우 카메라 렌더링·USD 임포터 등 일부 기능이 빠집니다.
+- **DGX Spark는 arm64(GB10)** 입니다. ~~Isaac Sim pip 은 x86 전용~~ (정정 2026-10-16: pypi.nvidia.com 에 `isaacsim 6.0.1.0` cp312 manylinux_2_35_**aarch64** 휠이 있음 — Arena `uv.lock` 확인). 빠른 경로는 `scripts/setup_conda_isaac.sh --pip`, 소스 빌드는 대안.
 - Python **3.12** 필수 (Isaac Sim 6.0.x/6.1 · Isaac Lab 3.0 요구; Lab 3.0 문서는 현재 Sim 6.1 과 짝지어져 있으므로 설치 시 문서 기준 버전을 따를 것). `uv venv --python 3.12`.
 - 메모리: 128 GB 통합 메모리를 Isaac Sim, Arena 병렬 env, 정책 서버, LLM이 나눠 씁니다. LLM은 **Nemotron 3 Nano 30B** (Ollama) 로 시작하고, 메모리 여유를 측정한 뒤 Super 급을 검토합니다.
 - NemoClaw의 로컬 추론(Ollama/vLLM)은 공식 문서상 *experimental* 입니다. 실패하면 OpenShell 없이 에이전트를 직접 실행하는 fallback 경로(§5)를 둡니다.
